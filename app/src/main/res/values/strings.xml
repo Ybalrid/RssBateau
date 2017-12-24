@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">RSS Bateau</string>
+
+    <string name="default_feed">http://www.lemonde.fr/rss/une.xml</string>
+</resources>
