@@ -1,14 +1,9 @@
 package info.ybalrid.rssbateau;
 
-import info.ybalrid.rssbateau.RssItem;
-
 import android.app.Activity;
-import android.app.Fragment;
 import android.app.ListFragment;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.renderscript.ScriptGroup;
-import android.text.Html;
 import android.util.Log;
 import android.util.Xml;
 import android.view.LayoutInflater;
@@ -23,25 +18,12 @@ import android.widget.Toast;
 import org.xmlpull.v1.XmlPullParser;
 import org.xmlpull.v1.XmlPullParserException;
 
-import java.io.BufferedInputStream;
-import java.io.BufferedReader;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
 import java.io.InputStream;
-import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.net.URLConnection;
-import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Collections;
 
-import info.ybalrid.rssbateau.R;
-
-/**
- * Created by ybalrid on 12/24/17.
- */
 
 public class MyListFragment extends ListFragment {
 
@@ -87,7 +69,7 @@ public class MyListFragment extends ListFragment {
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_rsslist_overview,
                 container, false);
-        Button button = (Button) view.findViewById(R.id.button1);
+        Button button = view.findViewById(R.id.button1);
         button.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -100,14 +82,109 @@ public class MyListFragment extends ListFragment {
         return view;
     }
 
+    public void parse(InputStream s) {
+        listContent.clear();
+        String title = null, link = null, description = null;
+        Log.d("Async", "cleared...");
+        try {
+            XmlPullParser xmlPullParser = Xml.newPullParser();
+            xmlPullParser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
+            xmlPullParser.setInput(s, null);
+            boolean isItem = false;
+            xmlPullParser.nextTag();
+            while (xmlPullParser.next() != XmlPullParser.END_DOCUMENT) {
+                int eventType = xmlPullParser.getEventType();
+
+                String name = xmlPullParser.getName();
+                if (name == null) continue;
+
+
+                if (eventType == XmlPullParser.END_TAG) {
+                    if (name.equalsIgnoreCase("item")) {
+                        isItem = false;
+                    }
+                    continue;
+                }
+
+                if (eventType == XmlPullParser.START_TAG) {
+                    if (name.equalsIgnoreCase("item")) {
+                        isItem = true;
+                        continue;
+                    }
+                }
+
+                String result = "";
+                if (xmlPullParser.next() == XmlPullParser.TEXT) {
+                    result = xmlPullParser.getText();
+                    xmlPullParser.nextTag();
+                }
+
+                if (result != null)
+                    Log.d("Async", result);
+
+                if (name.equalsIgnoreCase("title"))
+                    title = result;
+                else if (name.equalsIgnoreCase("link"))
+                    link = result;
+                else if (name.equalsIgnoreCase("description"))
+                    description = result;
+
+                if (title != null && link != null && description != null) {
+                    if (isItem) {
+                        RssItem rssItem = new RssItem(title, link, description);
+                        listContent.add(rssItem);
+                    }
+
+
+                    title = null;
+                    link = null;
+                    description = null;
+                    isItem = false;
+                }
+
+
+            }
+        } catch (XmlPullParserException e) {
+            Log.e("Async", e.getMessage());
+        } catch (java.io.IOException e) {
+            Log.e("Async", e.getMessage());
+        }
+    }
+
+    public void refresh()
+    {
+        Toast.makeText(getActivity(), "Rafraichissement du flux RSS...", Toast.LENGTH_SHORT).show();
+        new FetchFeedTask().execute((Void)null);
+    }
+
+    @Override
+    public void onAttach(Activity activity) {
+        super.onAttach(activity);
+        if (activity instanceof OnItemSelectedListener) {
+            listener = (OnItemSelectedListener) activity;
+        } else {
+            throw new ClassCastException(activity.toString()
+                    + " must implemenet info.ybalrid.rssbateau.MyListFragment.OnItemSelectedListener");
+        }
+    }
+
+    // May also be triggered from the Activity
+    public void updateDetail(RssItem content) {
+        // create fake data
+        //String newTime = String.valueOf(System.currentTimeMillis());
+        // Send data to Activity
+
+
+        listener.onRssItemSelected(content);
+    }
+
     public interface OnItemSelectedListener {
-        public void onRssItemSelected(RssItem link);
+        void onRssItemSelected(RssItem link);
     }
 
     private class FetchFeedTask extends AsyncTask<Void, Void, Boolean> {
         @Override
-        protected Boolean doInBackground(Void... voids)
-        {
+        protected Boolean doInBackground(Void... voids) {
             try {
                 String target = getResources().getString(R.string.default_feed);
                 Log.d("MyTag", target);
@@ -124,15 +201,9 @@ public class MyListFragment extends ListFragment {
 
                 parse(conn.getInputStream());
                 return true;
-            }
-
-
-            catch(java.net.MalformedURLException e)
-            {
+            } catch (java.net.MalformedURLException e) {
                 //Don't care
-            }
-            catch(java.io.IOException e)
-            {
+            } catch (java.io.IOException e) {
                 //Don't care either
             }
 
@@ -141,12 +212,10 @@ public class MyListFragment extends ListFragment {
         }
 
         @Override
-        protected void onPostExecute(Boolean success)
-        {
-            if(success)
-            {
+        protected void onPostExecute(Boolean success) {
+            if (success) {
                 list.clear();
-                for(int i = 0; i < listContent.size(); i++) {
+                for (int i = 0; i < listContent.size(); i++) {
                     list.add(listContent.get(i).title);
                 }
 
@@ -154,123 +223,5 @@ public class MyListFragment extends ListFragment {
             }
         }
 
-    }
-
-        public void parse(InputStream s)
-        {
-            listContent.clear();
-            String title = null, link = null, description = null;
-            Log.d("Async", "cleared...");
-            try
-            {
-                XmlPullParser xmlPullParser = Xml.newPullParser();
-                xmlPullParser.setFeature(XmlPullParser.FEATURE_PROCESS_NAMESPACES, false);
-                xmlPullParser.setInput(s, null);
-                boolean isItem = false;
-                xmlPullParser.nextTag();
-                while(xmlPullParser.next() != xmlPullParser.END_DOCUMENT)
-                {
-                    int eventType = xmlPullParser.getEventType();
-
-                    String name = xmlPullParser.getName();
-                    if(name == null) continue;
-
-
-                    if(eventType == XmlPullParser.END_TAG)
-                    {
-                        if(name.equalsIgnoreCase("item"))
-                        {
-                            isItem = false;
-                        }
-                        continue;
-                    }
-
-                    if (eventType == XmlPullParser.START_TAG)
-                    {
-                        if(name.equalsIgnoreCase("item"))
-                        {
-                            isItem = true;
-                            continue;
-                        }
-                    }
-
-                    String result = "";
-                    if (xmlPullParser.next() == XmlPullParser.TEXT)
-                    {
-                        result = xmlPullParser.getText();
-                        xmlPullParser.nextTag();
-                    }
-
-                    if(result != null)
-                    Log.d("Async", result);
-
-                    if (name.equalsIgnoreCase("title"))
-                        title = result;
-                    else if (name.equalsIgnoreCase("link"))
-                        link = result;
-                    else if (name.equalsIgnoreCase("description"))
-                        description = result;
-
-                    if(title != null && link != null && description != null)
-                    {
-                        if(isItem)
-                        {
-                            RssItem rssItem = new RssItem(title, link, description);
-                            listContent.add(rssItem);
-                        }
-
-
-                        title = null;
-                        link = null;
-                        description = null;
-                        isItem = false;
-                    }
-
-
-
-                }
-            }
-            catch (XmlPullParserException e)
-            {
-                Log.e("Async", e.getMessage());
-            }
-            catch(java.io.IOException e)
-            {
-                Log.e("Async", e.getMessage());
-            }
-        }
-
-
-
-
-    public void refresh()
-    {
-        Toast.makeText(getActivity(), "Rafraichissement du flux RSS...", Toast.LENGTH_SHORT).show();
-        new FetchFeedTask().execute((Void)null);
-    }
-
-
-
-
-    @Override
-    public void onAttach(Activity activity) {
-        super.onAttach(activity);
-        if (activity instanceof OnItemSelectedListener) {
-            listener = (OnItemSelectedListener) activity;
-        } else {
-            throw new ClassCastException(activity.toString()
-                    + " must implemenet info.ybalrid.rssbateau.MyListFragment.OnItemSelectedListener");
-        }
-    }
-
-
-    // May also be triggered from the Activity
-    public void updateDetail(RssItem content) {
-        // create fake data
-        //String newTime = String.valueOf(System.currentTimeMillis());
-        // Send data to Activity
-
-
-        listener.onRssItemSelected(content);
     }
 }

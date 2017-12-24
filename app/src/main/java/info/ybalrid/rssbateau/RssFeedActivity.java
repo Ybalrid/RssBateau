@@ -1,14 +1,8 @@
 package info.ybalrid.rssbateau;
 
-import android.os.Bundle;
-
-
-import android.app.Activity;
-
 import android.app.Activity;
 import android.content.Intent;
 import android.os.Bundle;
-import android.view.Menu;
 
 public class RssFeedActivity extends Activity implements
         MyListFragment.OnItemSelectedListener {
